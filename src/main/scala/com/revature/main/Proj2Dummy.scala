@@ -1,13 +1,14 @@
-package com.revature
+package com.revature.main
 
-import org.apache.spark.sql.functions.{col, not, when}
-import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
-import org.apache.spark.sql.types._
+import com.revature.main.eq1.getDeathsPerState
 import org.apache.commons.io.FileUtils
+import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.Write
+import org.apache.log4j.{Level, Logger}
+import org.apache.spark.sql.functions.{col, not, when}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 import java.io.File
-import util.Try
+import scala.util.Try
 
 object Project2 {
 	var spark:SparkSession = null
@@ -115,129 +116,32 @@ object Project2 {
 		// Read "covid_19_data.csv" data as a dataframe
 		println("Dataframe read from CSV:")
 		var startTime = System.currentTimeMillis()
-		var df = spark.read.format("csv").option("header", "true").option("inferSchema", "true").load("apportionment.csv")
+		var popDensity = spark.read.format("csv").option("header", "true").option("inferSchema", "true").load("apportionment.csv")
 		var transTime = (System.currentTimeMillis() - startTime) / 1000d
-		df.printSchema()
-		//spark.sql("DROP TABLE IF EXISTS statelisttable")
-		df.createOrReplaceTempView("popDensityView")
-		var df2 = df.select("name")
-		var stateNames = spark.sql("SELECT name FROM popDensityView")  // Loads the data into the table from the view
-		//spark.catalog.dropTempView("popDensityView")  // View no longer needed
-		//var popList = stateNames.collect()
-		//println(popList.length)
-	//	spark.sql("DROP TABLE IF EXISTS populationDensityVsDeaths")
-		//spark.sql("CREATE TABLE populationDensityVsDeaths AS SELECT * FROM popdensitytable WHERE year = 2020")
-		//spark.sql()
-		var df2List = df2.collect()
-		var deathStorageArray = new Array[Int](df2List.length)
-		for(i <- 0 until df2List.length){
-			//Get all counties by each state, state stored in df2List(i)
-			//Add them to
+		popDensity.printSchema()
+		println("Modified dataframe:")
+		startTime = System.currentTimeMillis()
+		println("Table filled from dataframe:")
+		startTime = System.currentTimeMillis()
+		spark.sql("DROP TABLE IF EXISTS popdensitytable2020")
+		popDensity.createOrReplaceTempView("popdensitytable")  // Copies the dataframe into a view as "temptable"
+		spark.sql("CREATE TABLE popdensitytable2020 AS SELECT * FROM popdensitytable WHERE year = 2020")  // Loads the data into the table from the view
+		spark.catalog.dropTempView("temptable")  // View no longer needed
+		transTime = (System.currentTimeMillis() - startTime) / 1000d
+		var tabledat = spark.sql("SELECT * FROM popdensitytable2020 WHERE `Resident Population Density` IS NOT NULL").orderBy("`Name`")
+		tabledat.show(false)
+		println(s"Transaction time: $transTime seconds\n")
 
-		}
-		df=df.groupBy(col("Date"),col("Country")).sum("Confirmed","Deaths","Recovered")
-			.orderBy("Country")
-
-		//println("Modified dataframe:")
-		//startTime = System.currentTimeMillis()
-		//println("Table filled from dataframe:")
-		//startTime = System.currentTimeMillis()
-		//spark.sql("DROP TABLE IF EXISTS popdensitytable2020")
-		//popDensity.createOrReplaceTempView("popdensitytable")  // Copies the dataframe into a view as "temptable"
-		//spark.sql("CREATE TABLE popdensitytable2020 AS SELECT * FROM popdensitytable WHERE year = 2020")  // Loads the data into the table from the view
-		//spark.catalog.dropTempView("temptable")  // View no longer needed
-		//transTime = (System.currentTimeMillis() - startTime) / 1000d
-		//var tabledat = spark.sql("SELECT * FROM popdensitytable2020 WHERE `Resident Population Density` IS NOT NULL").orderBy("`Name`")
-		//tabledat.show(false)
-		//println(s"Transaction time: $transTime seconds\n")
-/*
 		// Write the data out as a file to be used for visualization
 		println("Save unique locations as file...")
 		startTime = System.currentTimeMillis()
 		val fname = saveDataFrameAsCSV(tabledat, "populationDensity2020.csv")
 		transTime = (System.currentTimeMillis() - startTime) / 1000d
 		println(s"Saved as: $fname")
-		println(s"Save completed in $transTime seconds.\n") */
+		println(s"Save completed in $transTime seconds.\n")
 	}
 
-	/**
-		*Fetches the deaths per state, prints to CSV.
-		*
-		*
-		*/
 
-	private def getDeathsPerState (): Unit = {
-		// Read "time_series_covid_19_confirmed_US.csv" data as a dataframe
-		println("Reading US COVID deaths by county into a dataframe from CSV:")
-		var startTime = System.currentTimeMillis()
-		var df = spark.read.format("csv").option("header", "true").option("inferSchema", "true").load("time_series_covid_19_deaths_US.csv")
-		//var states = spark.read.format("csv").option("header", "true").option("inferSchema", "true").load("apportionment.csv")
-		var transTime = (System.currentTimeMillis() - startTime) / 1000d
-		println(s"Table length: ${df.count()}")
-		println(s"Transaction time: $transTime seconds")
-		df = df.withColumnRenamed("5/2/21", "Deaths")
-			.withColumnRenamed("Province_State", "Name")
-			.withColumn("Deaths", col("Deaths").cast("double"))
-			.withColumn("Population", col("Population").cast("double"))
-		df = df.groupBy(col("Name"))
-			.sum("Population", "Deaths")
-			.orderBy("Name")
-		df = df.withColumn("fraction", col("sum(Deaths)")/col("sum(Population)"))
-			.withColumn(  "Percent", col("fraction") * 100 )
-			.drop("fraction")
-		df = df.withColumn("Percent", when(col("Percent").isNull,0.0) otherwise (col("Percent")))
-			.filter(not(df("Percent")===0.0))
-		df.show(100)
-		saveDataFrameAsCSV(df, "statePopDeathsPercent2.csv")
-		//State, population, deaths
-
-
-/*
-		// Modify dataframe to change column names and cast doubles to ints
-		println("Modified dataframe:")
-		startTime = System.currentTimeMillis()
-		var df2 = df.withColumnRenamed("Province/State", "State")
-			.withColumnRenamed("Country/Region", "Country")
-			.withColumn("Confirmed", col("Confirmed").cast("int"))
-			.withColumn("Deaths", col("Deaths").cast("int"))
-			.withColumn("Recovered", col("Recovered").cast("int"))
-		transTime = (System.currentTimeMillis() - startTime) / 1000d
-		df2.show(false)
-		println(s"Table length: ${df.count()}")
-		println(s"Transaction time: $transTime seconds")
-		df2.printSchema()
-
-		// Copy the dataframe data into table "testdftable"
-		println("Table filled from dataframe:")
-		startTime = System.currentTimeMillis()
-		spark.sql("DROP TABLE IF EXISTS testdftable")
-		df2.createOrReplaceTempView("temptable")  // Copies the dataframe into a view as "temptable"
-		spark.sql("CREATE TABLE testdftable AS SELECT * FROM temptable")  // Loads the data into the table from the view
-		spark.catalog.dropTempView("temptable")  // View no longer needed
-		transTime = (System.currentTimeMillis() - startTime) / 1000d
-		var tabledat = spark.sql("SELECT * FROM testdftable").orderBy("SNo")
-		tabledat.show(false)
-		// tabledat.explain()  // Shows the table's definition
-		spark.sql("SELECT COUNT(*) FROM testdftable").show()
-		println(s"Transaction time: $transTime seconds\n")
-
-		// Create a table of just "State" and "Country" with unique rows
-		println("Transformation - Unique locations:")
-		startTime = System.currentTimeMillis()
-		df = spark.sql("SELECT * FROM testdftable").groupBy("State", "Country").count().withColumnRenamed("count", "Datapoints").orderBy("Country", "State")
-		transTime = (System.currentTimeMillis() - startTime) / 1000d
-		df.show(false)
-		println(s"Unique locations: ${df.count()}")
-		println(s"Transaction time: $transTime seconds\n")
-
-		// Write the data out as a file to be used for visualization
-		println("Save unique locations as file...")
-		startTime = System.currentTimeMillis()
-		val fname = saveDataFrameAsCSV(df, "uniqueLocations.csv")
-		transTime = (System.currentTimeMillis() - startTime) / 1000d
-		println(s"Saved as: $fname")
-		println(s"Save completed in $transTime seconds.\n") */
-	}
 	/**
 	  * Main program section.  Sets up Spark session, runs queries, and then closes the session.
 	  *
