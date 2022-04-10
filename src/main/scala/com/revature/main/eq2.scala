@@ -26,7 +26,7 @@ object eq2 {
       .withColumnRenamed("MMWR Week", "Week")
       .withColumn("Deaths", col("Deaths").cast("double"))
     df = df.filter(df("Year") === "2019")
-    df = df.select("Deaths", "Name")
+    df = df.select("Deaths", "Name", "Week")
    // df = df.filter(df("Name") =!= "UnitedStates") Not working, not sure why.
     df.show(1000)
     saveDataFrameAsCSV(df, "stateDeathsByWeek2019.csv")
