@@ -39,9 +39,9 @@ This was a group project where we were given COVID-19 data which covered the per
 
 **Relationship between COVID-19 Case Rate and Historical Average Temperature by Country (Feb. '20 - April '21)**
 
-The first query here ([bq1.scala](src/main/scala/com/revature/main/bq1.scala)) found the average number of cases per month per country, normalized by population size.
+The first query ([here](src/main/scala/com/revature/main/bq1.scala)) found the average number of cases per month per country, normalized by population size.
 
-The second query ([bq2.scala](src/main/scala/com/revature/main/bq2.scala)) used the data from that first query, plus [historical climate data from the Berkeley Earth data page](https://data.world/data-society/global-climate-change-data) to look at the COVID-19 data for a relationship between average historical temperatures and the rate of COVID-19 cases by country.
+The second query (here](src/main/scala/com/revature/main/bq1.scala)) used the data from that first query, plus [historical climate data from the Berkeley Earth data page](https://data.world/data-society/global-climate-change-data) to look at the COVID-19 data for a relationship between average historical temperatures and the rate of COVID-19 cases by country.
 
 <div align="center"><a href="/images/BQ1.png?raw=true"><img alt="Graph of data" src="/images/BQ1.png?raw=true" height=300></a>
 
